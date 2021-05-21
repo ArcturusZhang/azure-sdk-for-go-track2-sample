@@ -14,6 +14,6 @@ require (
 
 replace github.com/Azure/azure-sdk-for-go/sdk/compute/armcompute v0.1.0 => github.com/ArcturusZhang/azure-sdk-for-go/sdk/compute/armcompute v0.0.0-20210521061855-4bffc32e2ffa
 
-replace github.com/Azure/azure-sdk-for-go/sdk/resources/armresources v0.1.0 => github.com/ArcturusZhang/azure-sdk-for-go/sdk/resources/armresources v0.0.0-20210521021048-736bb0adf0f3
+replace github.com/Azure/azure-sdk-for-go/sdk/resources/armresources v0.1.0 => github.com/ArcturusZhang/azure-sdk-for-go/sdk/resources/armresources v0.0.0-20210521064715-be4bdc4f2e02
 
-replace github.com/Azure/azure-sdk-for-go/sdk/network/armnetwork v0.1.0 => github.com/ArcturusZhang/azure-sdk-for-go/sdk/network/armnetwork v0.0.0-20210521063755-e6e567d04b64
+replace github.com/Azure/azure-sdk-for-go/sdk/network/armnetwork v0.1.0 => github.com/ArcturusZhang/azure-sdk-for-go/sdk/network/armnetwork v0.0.0-20210521064839-8aff94b7ca61

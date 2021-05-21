@@ -1,9 +1,9 @@
 github.com/ArcturusZhang/azure-sdk-for-go/sdk/compute/armcompute v0.0.0-20210521061855-4bffc32e2ffa h1:eWqUujbJhagdWoD9/Z+5SEyyoNild07Yp9VzC4acegw=
 github.com/ArcturusZhang/azure-sdk-for-go/sdk/compute/armcompute v0.0.0-20210521061855-4bffc32e2ffa/go.mod h1:P9ThK7rnScX0H/9vTFZINpnddxsBq08E0Wo+0LwxU58=
-github.com/ArcturusZhang/azure-sdk-for-go/sdk/network/armnetwork v0.0.0-20210521063755-e6e567d04b64 h1:Xx49W2+j3xpANq4P8uayd2BuoLEoES/IRrS5hoLHfMQ=
-github.com/ArcturusZhang/azure-sdk-for-go/sdk/network/armnetwork v0.0.0-20210521063755-e6e567d04b64/go.mod h1:oS/olcpktrVWS/VIhkBS3OApbOp/xqf3ALu1WAgLB/s=
-github.com/ArcturusZhang/azure-sdk-for-go/sdk/resources/armresources v0.0.0-20210521021048-736bb0adf0f3 h1:gXsqWVAG66M3fjH2w6jvhlLHwe51F8QhKWS1crri/GE=
-github.com/ArcturusZhang/azure-sdk-for-go/sdk/resources/armresources v0.0.0-20210521021048-736bb0adf0f3/go.mod h1:dFOZh2tZERskmzqDvYg4SwD7CQQS0/8EmVDxRV7YqpM=
+github.com/ArcturusZhang/azure-sdk-for-go/sdk/network/armnetwork v0.0.0-20210521064839-8aff94b7ca61 h1:QKAGkqAWCpvIaoCiQXsYy+wEmy0kpZ1CQIWVyNoQmcc=
+github.com/ArcturusZhang/azure-sdk-for-go/sdk/network/armnetwork v0.0.0-20210521064839-8aff94b7ca61/go.mod h1:oS/olcpktrVWS/VIhkBS3OApbOp/xqf3ALu1WAgLB/s=
+github.com/ArcturusZhang/azure-sdk-for-go/sdk/resources/armresources v0.0.0-20210521064715-be4bdc4f2e02 h1:BCglel4ENE32d8vpBo3keiGfjLrN4MA9ZV+M4o7Quno=
+github.com/ArcturusZhang/azure-sdk-for-go/sdk/resources/armresources v0.0.0-20210521064715-be4bdc4f2e02/go.mod h1:dFOZh2tZERskmzqDvYg4SwD7CQQS0/8EmVDxRV7YqpM=
 github.com/Azure/azure-sdk-for-go/sdk/armcore v0.7.1 h1:qvtCPHEhkkkiuHqoQU3c0a21l6qO3sXgpa3aC/SO4w8=
 github.com/Azure/azure-sdk-for-go/sdk/armcore v0.7.1/go.mod h1:6yYd2qNvutd94jHTMUg9KrdbR39jNzI4d+15lm2gxkg=
 github.com/Azure/azure-sdk-for-go/sdk/azcore v0.14.0/go.mod h1:pElNP+u99BvCZD+0jOlhI9OC/NB2IDTOTGZOZH0Qhq8=
