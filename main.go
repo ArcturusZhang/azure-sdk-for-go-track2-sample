@@ -52,30 +52,48 @@ func main() {
 			IncludeBody: true,
 		},
 	})
+
+	defer cleanup(conn)
+
 	if err := createResourceGroup(conn); err != nil {
 		panic(err)
 	}
-	defer deleteResourceGroup(conn)
+	addCleanupFunction(deleteResourceGroup)
 
 	if err := createVirtualNetwork(conn); err != nil {
 		panic(err)
 	}
-	defer deleteVirtualNetwork(conn)
+	addCleanupFunction(deleteVirtualNetwork)
 
 	if err := createSubnet(conn); err != nil {
 		panic(err)
 	}
-	defer deleteSubnet(conn)
+	addCleanupFunction(deleteSubnet)
 
 	if err := createNIC(conn); err != nil {
 		panic(err)
 	}
-	defer deleteNIC(conn)
+	addCleanupFunction(deleteNIC)
 
 	if err := createVirtualMachine(conn); err != nil {
 		panic(err)
 	}
-	defer deleteVirtualMachine(conn)
+	addCleanupFunction(deleteVirtualMachine)
+}
+
+var cleanupFuncs []cleanupFunc
+
+type cleanupFunc func(connection *armcore.Connection) error
+
+func addCleanupFunction(f cleanupFunc) {
+	cleanupFuncs = append(cleanupFuncs, f)
+}
+
+func cleanup(connection *armcore.Connection) {
+	for i := len(cleanupFuncs) - 1; i >= 0; i-- {
+		f := cleanupFuncs[i]
+		_ = f(connection)
+	}
 }
 
 func createResourceGroup(connection *armcore.Connection) error {
@@ -312,14 +330,17 @@ func createVirtualMachine(connection *armcore.Connection) error {
 	}
 
 	// we cannot use the resp returned by the service because this response does not returned with a final polling URL in its header
-	if _, err := poller.PollUntilDone(ctx, interval); err != nil {
-		return err
-	}
-
-	resp, err := vmClient.Get(ctx, resourceGroupName, vmName, nil)
+	resp, err := poller.PollUntilDone(ctx, interval)
 	if err != nil {
 		return err
 	}
+
+	fmt.Printf("VM in resp is nil: %v", resp.VirtualMachine == nil)
+
+	//resp, err := vmClient.Get(ctx, resourceGroupName, vmName, nil)
+	//if err != nil {
+	//	return err
+	//}
 
 	b, err := json.MarshalIndent(*resp.VirtualMachine, "", "  ")
 	if err != nil {
