@@ -330,17 +330,14 @@ func createVirtualMachine(connection *armcore.Connection) error {
 	}
 
 	// we cannot use the resp returned by the service because this response does not returned with a final polling URL in its header
-	resp, err := poller.PollUntilDone(ctx, interval)
-	if err != nil {
+	if _, err := poller.PollUntilDone(ctx, interval); err != nil {
 		return err
 	}
 
-	fmt.Printf("VM in resp is nil: %v", resp.VirtualMachine == nil)
-
-	//resp, err := vmClient.Get(ctx, resourceGroupName, vmName, nil)
-	//if err != nil {
-	//	return err
-	//}
+	resp, err := vmClient.Get(ctx, resourceGroupName, vmName, nil)
+	if err != nil {
+		return err
+	}
 
 	b, err := json.MarshalIndent(*resp.VirtualMachine, "", "  ")
 	if err != nil {
