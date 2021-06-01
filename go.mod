@@ -1,4 +1,4 @@
-module github.com/ArcturusZhang/track2-test-program
+module github.com/ArcturusZhang/azure-sdk-for-go-track2-sample
 
 go 1.16
 
