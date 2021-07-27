@@ -2,8 +2,7 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -16,30 +15,18 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/to"
 )
 
-const (
-	interval = 10 * time.Second
-)
-
 var (
-	ctx               context.Context
 	subscriptionId    string
 	location          = "westus2"
-	resourceGroupName = "dapzhang-track2"
-	vnetName          = "dapzhang-vnet"
+	resourceGroupName = "sample-resourcegroup"
+	vnetName          = "sample-vnet"
 	subnetName        = "internal"
-	nicName           = "dapzhang-nic"
-	vmName            = "dapzhang-vm"
-
-	resourceGroupID string
-	vnetID          string
-	subnetID        string
-	nicID           string
-	vmID            string
+	nicName           = "sample-nic"
+	vmName            = "sample-vm"
 )
 
 func init() {
-	ctx = context.Background()
-	subscriptionId = os.Getenv("SUBSCRIPTION_ID")
+	subscriptionId = os.Getenv("AZURE_SUBSCRIPTION_ID")
 }
 
 func main() {
@@ -53,50 +40,41 @@ func main() {
 		},
 	})
 
-	defer cleanup(conn)
-
-	if err := createResourceGroup(conn); err != nil {
-		panic(err)
+	ctx := context.Background()
+	resourceGroup, err := createResourceGroup(ctx, conn)
+	if err != nil {
+		log.Fatalf("Cannot create resource group: %+v", err)
 	}
-	addCleanupFunction(deleteResourceGroup)
+	log.Printf("Resource Group %s created", *resourceGroup.ID)
 
-	if err := createVirtualNetwork(conn); err != nil {
-		panic(err)
-	}
-	addCleanupFunction(deleteVirtualNetwork)
+	defer deleteResourceGroup(ctx, conn)
 
-	if err := createSubnet(conn); err != nil {
-		panic(err)
+	vnet, err := createVirtualNetwork(ctx, conn)
+	if err != nil {
+		log.Fatalf("Cannot create virtual network: %+v", err)
 	}
-	addCleanupFunction(deleteSubnet)
+	log.Printf("Virtual Network %s created", *vnet.ID)
 
-	if err := createNIC(conn); err != nil {
-		panic(err)
+	subnet, err := createSubnet(ctx, conn)
+	if err != nil {
+		log.Fatalf("Cannot create subnet: %+v", err)
 	}
-	addCleanupFunction(deleteNIC)
+	log.Printf("Subnet %s created", *subnet.ID)
 
-	if err := createVirtualMachine(conn); err != nil {
-		panic(err)
+	nic, err := createNIC(ctx, conn, *subnet.ID)
+	if err != nil {
+		log.Fatalf("Cannot create network interface: %+v", err)
 	}
-	addCleanupFunction(deleteVirtualMachine)
+	log.Printf("Network Interface %s created", *nic.ID)
+
+	vm, err := createVirtualMachine(ctx, conn, *nic.ID)
+	if err != nil {
+		log.Fatalf("Cannot create virtual machine: %+v", err)
+	}
+	log.Printf("Virtual Machine %s created", *vm.ID)
 }
 
-var cleanupFuncs []cleanupFunc
-
-type cleanupFunc func(connection *armcore.Connection) error
-
-func addCleanupFunction(f cleanupFunc) {
-	cleanupFuncs = append(cleanupFuncs, f)
-}
-
-func cleanup(connection *armcore.Connection) {
-	for i := len(cleanupFuncs) - 1; i >= 0; i-- {
-		f := cleanupFuncs[i]
-		_ = f(connection)
-	}
-}
-
-func createResourceGroup(connection *armcore.Connection) error {
+func createResourceGroup(ctx context.Context, connection *armcore.Connection) (*armresources.ResourceGroup, error) {
 	rgClient := armresources.NewResourceGroupsClient(connection, subscriptionId)
 
 	param := armresources.ResourceGroup{
@@ -105,33 +83,58 @@ func createResourceGroup(connection *armcore.Connection) error {
 
 	resp, err := rgClient.CreateOrUpdate(ctx, resourceGroupName, param, nil)
 	if err != nil {
-		return err
-	}
-	b, err := json.MarshalIndent(*resp.ResourceGroup, "", "  ")
-	if err != nil {
-		return err
+		return nil, err
 	}
 
-	resourceGroupID = *resp.ResourceGroup.ID
-	fmt.Printf("Resource Group '%s' created: \n%s\n", resourceGroupID, string(b))
-	return nil
+	return resp.ResourceGroup, nil
 }
 
-func deleteResourceGroup(connection *armcore.Connection) error {
+func updateResourceGroup(ctx context.Context, connection *armcore.Connection) (*armresources.ResourceGroup, error) {
+	rgClient := armresources.NewResourceGroupsClient(connection, subscriptionId)
+
+	update := armresources.ResourceGroupPatchable{
+		Tags: map[string]*string{
+			"new": to.StringPtr("tag"),
+		},
+	}
+	resp, err := rgClient.Update(ctx, resourceGroupName, update, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.ResourceGroup, nil
+}
+
+func listResourceGroups(ctx context.Context, connection *armcore.Connection) ([]*armresources.ResourceGroup, error) {
+	rgClient := armresources.NewResourceGroupsClient(connection, subscriptionId)
+
+	pager := rgClient.List(nil)
+
+	var resourceGroups []*armresources.ResourceGroup
+	for pager.NextPage(ctx) {
+		resp := pager.PageResponse()
+		if resp.ResourceGroupListResult != nil {
+			resourceGroups = append(resourceGroups, resp.ResourceGroupListResult.Value...)
+		}
+	}
+	return resourceGroups, pager.Err()
+}
+
+func deleteResourceGroup(ctx context.Context, connection *armcore.Connection) error {
 	rgClient := armresources.NewResourceGroupsClient(connection, subscriptionId)
 
 	poller, err := rgClient.BeginDelete(ctx, resourceGroupName, nil)
 	if err != nil {
 		return err
 	}
-	if _, err := poller.PollUntilDone(ctx, interval); err != nil {
+	if _, err := poller.PollUntilDone(ctx, 10*time.Second); err != nil {
 		return err
 	}
-	fmt.Printf("Resource Group '%s' deleted.\n", resourceGroupID)
+
 	return nil
 }
 
-func createVirtualNetwork(connection *armcore.Connection) error {
+func createVirtualNetwork(ctx context.Context, connection *armcore.Connection) (*armnetwork.VirtualNetwork, error) {
 	vnetClient := armnetwork.NewVirtualNetworksClient(connection, subscriptionId)
 
 	param := armnetwork.VirtualNetwork{
@@ -148,37 +151,45 @@ func createVirtualNetwork(connection *armcore.Connection) error {
 	}
 	poller, err := vnetClient.BeginCreateOrUpdate(ctx, resourceGroupName, vnetName, param, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	resp, err := poller.PollUntilDone(ctx, interval)
+	resp, err := poller.PollUntilDone(ctx, 10*time.Second)
 	if err != nil {
-		return err
-	}
-	b, err := json.MarshalIndent(*resp.VirtualNetwork, "", "  ")
-	if err != nil {
-		return err
+		return nil, err
 	}
 
-	vnetID = *resp.VirtualNetwork.ID
-	fmt.Printf("Virtual Network '%s' created: \n%s\n", vnetID, string(b))
-	return nil
+	return resp.VirtualNetwork, nil
 }
 
-func deleteVirtualNetwork(connection *armcore.Connection) error {
+func deleteVirtualNetwork(ctx context.Context, connection *armcore.Connection) error {
 	vnetClient := armnetwork.NewVirtualNetworksClient(connection, subscriptionId)
 
 	poller, err := vnetClient.BeginDelete(ctx, resourceGroupName, vnetName, nil)
 	if err != nil {
 		return err
 	}
-	if _, err := poller.PollUntilDone(ctx, interval); err != nil {
+	if _, err := poller.PollUntilDone(ctx, 10*time.Second); err != nil {
 		return err
 	}
-	fmt.Printf("Virtual Network '%s' deleted.\n", vnetID)
+
 	return nil
 }
 
-func createSubnet(connection *armcore.Connection) error {
+func listVirtualNetwork(ctx context.Context, connection *armcore.Connection) ([]*armnetwork.VirtualNetwork, error) {
+	vnetClient := armnetwork.NewVirtualNetworksClient(connection, subscriptionId)
+
+	pager := vnetClient.List(resourceGroupName, nil)
+
+	var virtualNetworks []*armnetwork.VirtualNetwork
+	for pager.NextPage(ctx) {
+		resp := pager.PageResponse()
+		virtualNetworks = append(virtualNetworks, resp.VirtualNetworkListResult.Value...)
+	}
+
+	return virtualNetworks, pager.Err()
+}
+
+func createSubnet(ctx context.Context, connection *armcore.Connection) (*armnetwork.Subnet, error) {
 	subnetClient := armnetwork.NewSubnetsClient(connection, subscriptionId)
 
 	param := armnetwork.Subnet{
@@ -188,38 +199,30 @@ func createSubnet(connection *armcore.Connection) error {
 	}
 	poller, err := subnetClient.BeginCreateOrUpdate(ctx, resourceGroupName, vnetName, subnetName, param, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	resp, err := poller.PollUntilDone(ctx, interval)
+	resp, err := poller.PollUntilDone(ctx, 10*time.Second)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	b, err := json.MarshalIndent(*resp.Subnet, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	subnetID = *resp.Subnet.ID
-	fmt.Printf("Subnet '%s' created: \n%s\n", subnetID, string(b))
-	return nil
+	return resp.Subnet, nil
 }
 
-func deleteSubnet(connection *armcore.Connection) error {
+func deleteSubnet(ctx context.Context, connection *armcore.Connection) error {
 	subnetClient := armnetwork.NewSubnetsClient(connection, subscriptionId)
 
 	poller, err := subnetClient.BeginDelete(ctx, resourceGroupName, vnetName, subnetName, nil)
 	if err != nil {
 		return err
 	}
-	if _, err := poller.PollUntilDone(ctx, interval); err != nil {
+	if _, err := poller.PollUntilDone(ctx, 10*time.Second); err != nil {
 		return err
 	}
-	fmt.Printf("Subnet '%s' deleted.\n", subnetID)
+
 	return nil
 }
 
-func createNIC(connection *armcore.Connection) error {
+func createNIC(ctx context.Context, connection *armcore.Connection, subnetID string) (*armnetwork.NetworkInterface, error) {
 	nicClient := armnetwork.NewNetworkInterfacesClient(connection, subscriptionId)
 
 	param := armnetwork.NetworkInterface{
@@ -244,39 +247,31 @@ func createNIC(connection *armcore.Connection) error {
 	}
 	poller, err := nicClient.BeginCreateOrUpdate(ctx, resourceGroupName, nicName, param, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	resp, err := poller.PollUntilDone(ctx, interval)
+	resp, err := poller.PollUntilDone(ctx, 10*time.Second)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	b, err := json.MarshalIndent(*resp.NetworkInterface, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	nicID = *resp.NetworkInterface.ID
-	fmt.Printf("Network Interface '%s' created: \n%s\n", nicID, string(b))
-	return nil
+	return resp.NetworkInterface, nil
 }
 
-func deleteNIC(connection *armcore.Connection) error {
+func deleteNIC(ctx context.Context, connection *armcore.Connection) error {
 	nicClient := armnetwork.NewNetworkInterfacesClient(connection, subscriptionId)
 
 	poller, err := nicClient.BeginDelete(ctx, resourceGroupName, nicName, nil)
 	if err != nil {
 		return err
 	}
-	if _, err := poller.PollUntilDone(ctx, interval); err != nil {
+	if _, err := poller.PollUntilDone(ctx, 10*time.Second); err != nil {
 		return err
 	}
 
-	fmt.Printf("NIC '%s' deleted.\n", nicID)
 	return nil
 }
 
-func createVirtualMachine(connection *armcore.Connection) error {
+func createVirtualMachine(ctx context.Context, connection *armcore.Connection, nicID string) (*armcompute.VirtualMachine, error) {
 	vmClient := armcompute.NewVirtualMachinesClient(connection, subscriptionId)
 
 	param := armcompute.VirtualMachine{
@@ -326,30 +321,18 @@ func createVirtualMachine(connection *armcore.Connection) error {
 
 	poller, err := vmClient.BeginCreateOrUpdate(ctx, resourceGroupName, vmName, param, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	// we cannot use the resp returned by the service because this response does not returned with a final polling URL in its header
-	if _, err := poller.PollUntilDone(ctx, interval); err != nil {
-		return err
-	}
-
-	resp, err := vmClient.Get(ctx, resourceGroupName, vmName, nil)
+	resp, err := poller.PollUntilDone(ctx, 10*time.Second)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	b, err := json.MarshalIndent(*resp.VirtualMachine, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	vmID = *resp.VirtualMachine.ID
-	fmt.Printf("Virtual Machine '%s' created: \n%s\n", vmID, string(b))
-	return nil
+	return resp.VirtualMachine, nil
 }
 
-func deleteVirtualMachine(connection *armcore.Connection) error {
+func deleteVirtualMachine(ctx context.Context, connection *armcore.Connection) error {
 	vmClient := armcompute.NewVirtualMachinesClient(connection, subscriptionId)
 
 	poller, err := vmClient.BeginDelete(ctx, resourceGroupName, vmName, &armcompute.VirtualMachinesBeginDeleteOptions{
@@ -358,10 +341,9 @@ func deleteVirtualMachine(connection *armcore.Connection) error {
 	if err != nil {
 		return err
 	}
-	if _, err := poller.PollUntilDone(ctx, interval); err != nil {
+	if _, err := poller.PollUntilDone(ctx, 10*time.Second); err != nil {
 		return err
 	}
 
-	fmt.Printf("Virtual Machine '%s' deleted.\n", vmID)
 	return nil
 }
